@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
@@ -25,6 +26,7 @@ namespace IPA.Injector
     // ReSharper disable once UnusedMember.Global
     internal static class Injector
     {
+        private static int startupEntered;
         private static Task? pluginAsyncLoadTask;
         private static Task? permissionFixTask;
         //private static string otherNewtonsoftJson = null;
@@ -32,6 +34,7 @@ namespace IPA.Injector
         // ReSharper disable once UnusedParameter.Global
         internal static void Main(string[] args)
         { // entry point for doorstop
+            if (Interlocked.CompareExchange(ref startupEntered, 1, 0) != 0) return;
           // At this point, literally nothing but mscorlib is loaded,
           // and since this class doesn't have any static fields that
           // aren't defined in mscorlib, we can control exactly what
@@ -274,7 +277,7 @@ namespace IPA.Injector
         private static void Bootstrapper_Destroyed()
         {
             // wait for plugins to finish loading
-            pluginAsyncLoadTask?.Wait();
+            PluginLoader.WaitForMetadata();
             permissionFixTask?.Wait();
 
             Default.Debug("Plugins loaded");
