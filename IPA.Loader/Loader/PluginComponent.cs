@@ -2,6 +2,7 @@
 using IPA.Loader.Composite;
 using IPA.Utilities;
 using IPA.Utilities.Async;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -20,10 +21,22 @@ namespace IPA.Loader
 
         internal static PluginComponent Create()
         {
+            if (Instance != null) return Instance;
             return Instance = new GameObject("IPA_PluginManager").AddComponent<PluginComponent>();
         }
 
         internal void Awake()
+        {
+            try { AwakeCore(); }
+            catch (Exception failure)
+            {
+                PluginManager.RecordStartupFailure(failure);
+                enabled = false;
+                throw;
+            }
+        }
+
+        private void AwakeCore()
         {
             DontDestroyOnLoad(gameObject);
 
@@ -31,37 +44,32 @@ namespace IPA.Loader
             {
                 UnityGame.SetMainThread();
                 UnityGame.EnsureRuntimeGameVersion();
-
                 PluginManager.Load();
+            }
 
-                bsPlugins = new CompositeBSPlugin(PluginManager.BSMetas);
+            bsPlugins = new CompositeBSPlugin(PluginManager.BSMetas);
 #pragma warning disable 618
-                ipaPlugins = new CompositeIPAPlugin(PluginManager.Plugins);
+            ipaPlugins = new CompositeIPAPlugin(PluginManager.Plugins);
 #pragma warning restore 618
 
-                /*
-#if BeatSaber // TODO: remove this
-                gameObject.AddComponent<Updating.BeatMods.Updater>();
-#endif
-                */
-
+            if (!initialized)
+            {
                 bsPlugins.OnEnable();
                 ipaPlugins.OnApplicationStart();
-
-                SceneManager.activeSceneChanged += OnActiveSceneChanged;
-                SceneManager.sceneLoaded += OnSceneLoaded;
-                SceneManager.sceneUnloaded += OnSceneUnloaded;
-
-                var unitySched = UnityMainThreadTaskScheduler.Default as UnityMainThreadTaskScheduler;
-                if (!unitySched.IsRunning)
-                    StartCoroutine(unitySched.Coroutine());
-
-                initialized = true;
-
-#if DEBUG
-                Config.Stores.GeneratedStoreImpl.DebugSaveAssembly($"{Config.Stores.GeneratedStoreImpl.GeneratedAssemblyName}.dll");
-#endif
             }
+
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneUnloaded += OnSceneUnloaded;
+
+            var unitySched = UnityMainThreadTaskScheduler.Default as UnityMainThreadTaskScheduler;
+            if (!unitySched.IsRunning)
+                StartCoroutine(unitySched.Coroutine());
+
+            initialized = true;
+#if DEBUG
+            Config.Stores.GeneratedStoreImpl.DebugSaveAssembly($"{Config.Stores.GeneratedStoreImpl.GeneratedAssemblyName}.dll");
+#endif
         }
 
         internal void Update()
@@ -88,24 +96,28 @@ namespace IPA.Loader
 
         internal void OnDestroy()
         {
-            if (!quitting)
-            {
+            DetachSceneEvents();
+            if (!ReferenceEquals(Instance, this)) return;
+            Instance = null;
+            if (!quitting && !PluginManager.StartupFailed)
                 Create();
-            }
         }
 
-        internal void OnApplicationQuit()
+        private void DetachSceneEvents()
         {
             SceneManager.activeSceneChanged -= OnActiveSceneChanged;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneUnloaded -= OnSceneUnloaded;
-            
+        }
+
+        internal void OnApplicationQuit()
+        {
+            quitting = true;
+            if (!initialized) return;
+            DetachSceneEvents();
             bsPlugins.OnApplicationQuit();
             ipaPlugins.OnApplicationQuit();
-
-            ConfigRuntime.ShutdownRuntime(); // this seems to be needed
-
-            quitting = true;
+            ConfigRuntime.ShutdownRuntime();
         }
 
         internal void OnLevelWasLoaded(int level)
