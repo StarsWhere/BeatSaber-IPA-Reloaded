@@ -330,7 +330,40 @@ namespace IPA.Loader
 
         internal static IConfigProvider SelfConfigProvider { get; set; }
 
+        private static int startupState;
+        private static Exception startupFailure;
+
+        internal static void RecordStartupFailure(Exception failure)
+        {
+            startupFailure = failure;
+            startupState = 3;
+        }
+
+        internal static bool StartupFailed => startupState == 3;
+
         internal static void Load()
+        {
+            if (startupState == 2) return;
+            if (startupState == 3)
+                throw new InvalidOperationException("BSIPA plugin initialization previously failed; restart the game.", startupFailure);
+            if (startupState != 0)
+                throw new InvalidOperationException("Reentrant BSIPA plugin initialization was rejected.");
+
+            startupState = 1;
+            try
+            {
+                PluginLoader.WaitForMetadata();
+                LoadCore();
+                startupState = 2;
+            }
+            catch (Exception failure)
+            {
+                RecordStartupFailure(failure);
+                throw;
+            }
+        }
+
+        private static void LoadCore()
         {
             string pluginDirectory = UnityGame.PluginsPath;
 
