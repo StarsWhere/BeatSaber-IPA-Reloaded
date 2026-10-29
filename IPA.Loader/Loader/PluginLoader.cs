@@ -25,9 +25,20 @@ namespace IPA.Loader
 
     internal partial class PluginLoader
     {
+        private static readonly Lazy<Task> startupMetadataTask = new Lazy<Task>(StartMetadataLoad, true);
         internal static PluginMetadata SelfMeta = null!;
 
-        internal static Task LoadTask() =>
+        internal static Task LoadTask() => startupMetadataTask.Value;
+
+        private static void WaitForMetadataWithTimeout(int milliseconds)
+        {
+            if (!LoadTask().Wait(milliseconds))
+                throw new TimeoutException("BSIPA plugin metadata startup timed out; restart the game.");
+        }
+
+        public static void WaitForMetadata() => WaitForMetadataWithTimeout(120000);
+
+        private static Task StartMetadataLoad() =>
             Task.Run(() =>
         {
             YeetIfNeeded();
