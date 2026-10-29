@@ -17,28 +17,7 @@ namespace IPA.Injector
 
         public static bool IsInvalid(string path)
         {
-            var dataPlugins = Path.Combine(GameVersionEarly.ResolveDataPath(path), "Plugins");
-
-            // try
-            // {
-            //     var userDir = GetPath(new Guid("374DE290-123F-4565-9164-39C4925E467B"), KnownFolderFlags.DontVerify);
-            //     var userDir2 = GetPath(new Guid("7d83ee9b-2244-4e70-b1f5-5393042af1e4"), KnownFolderFlags.DontVerify);
-            //     var userDir3 = GetPath(new Guid("FDD39AD0-238F-46AF-ADB4-6C85480369C7"), KnownFolderFlags.DontVerify);
-            //     var userDir4 = GetPath(new Guid("B4BFCC3A-DB2C-424C-B029-7FE99A87C641"), KnownFolderFlags.DontVerify);
-            //
-            //     var curdir = Environment.CurrentDirectory;
-            //
-            //     if (curdir.IsSubPathOf(userDir) ||
-            //         curdir.IsSubPathOf(userDir2) ||
-            //         curdir.IsSubPathOf(userDir3) ||
-            //         curdir.IsSubPathOf(userDir4)) return true;
-            // }
-            // catch { }
-
-            // To the guys that maintain a fork that removes this code: I would greatly appreciate if we could talk
-            //   about this for a little bit. Please message me on Discord at DaNike#6223
-            return Directory.EnumerateFiles(path, "*").Any(IsInvalidFile) ||
-                   Directory.EnumerateFiles(dataPlugins, "*", SearchOption.AllDirectories).Any(IsInvalidFile);
+            return false;
         }
 
         private static bool IsInvalidFile(string filePath)
