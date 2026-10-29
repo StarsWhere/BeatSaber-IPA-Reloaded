@@ -363,6 +363,35 @@ namespace IPA.Loader
             }
         }
 
+        private static ModuleDefinition ReadLegacyModule(string path)
+        {
+            var resolver = new CecilLibLoader();
+            try
+            {
+                resolver.AddSearchDirectory(UnityGame.LibraryPath);
+                resolver.AddSearchDirectory(UnityGame.PluginsPath);
+                resolver.AddSearchDirectory(Path.Combine(UnityGame.InstallPath, "Beat Saber_Data", "Managed"));
+                resolver.AddSearchDirectory(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
+                return ModuleDefinition.ReadModule(path, new ReaderParameters { AssemblyResolver = resolver });
+            }
+            catch
+            {
+                resolver.Dispose();
+                throw;
+            }
+        }
+
+        private static void WriteLegacyModule(ModuleDefinition module, string path)
+        {
+            var resolver = module.AssemblyResolver;
+            try { module.Write(path); }
+            finally
+            {
+                module.Dispose();
+                resolver.Dispose();
+            }
+        }
+
         private static void LoadCore()
         {
             string pluginDirectory = UnityGame.PluginsPath;
@@ -413,7 +442,7 @@ namespace IPA.Loader
 
                 #region Fix assemblies for refactor
 
-                var module = ModuleDefinition.ReadModule(Path.Combine(pluginDirectory, s));
+                var module = ReadLegacyModule(Path.Combine(pluginDirectory, s));
                 foreach (var @ref in module.AssemblyReferences)
                 { // fix assembly references
                     if (@ref.Name == "IllusionPlugin" || @ref.Name == "IllusionInjector")
@@ -443,7 +472,7 @@ namespace IPA.Loader
                     if (@ref.Namespace == "IllusionInjector.Utilities") @ref.Namespace = "IPA.Utilities"; //@ref.Name = "";
                     if (@ref.Namespace == "IllusionInjector.Logging.Printers") @ref.Namespace = "IPA.Logging.Printers"; //@ref.Name = "";
                 }
-                module.Write(pluginCopy);
+                WriteLegacyModule(module, pluginCopy);
 
                 #endregion
             }
